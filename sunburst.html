@@ -6,7 +6,7 @@
     <title>Global Food Security Index</title>
     <script src="https://d3js.org/d3.v6.min.js"></script>
     <style>
-        /* 使用细网格背景 */
+        /* Use a fine grid background */
         body {
             margin: 0;
             overflow: hidden;
@@ -16,7 +16,7 @@
                     linear-gradient(90deg, #ccc 1px, transparent 1px);
             background-size: 20px 20px;
         }
-        /* 图表容器，占满整个视口 */
+        /* Chart container fills the viewport */
         #sunburst {
             width: 100vw;
             height: 100vh;
@@ -36,7 +36,7 @@
         .nav-button {
             position: absolute;
             top: 10px;
-            left: 10px;
+            right: 10px;
             padding: 10px 20px;
             background-color: #4CAF50;
             color: white;
@@ -50,16 +50,17 @@
 <body>
     <div id="sunburst"></div>
     <div class="tooltip" id="tooltip"></div>
-    <button class="nav-button" onclick="location.href='main.html'">Explore Data</button>
-    <!-- 添加国家选择框 -->
-<div style="position: absolute; left: 10px; top: 50px;">
-    <select id="countrySelect" onchange="highlightCountry()">
-        <option value="">Select a Country</option>
-    </select>
-</div>
+    <button class="nav-button" onclick="location.href='main.html'">Explore data on the map</button>
+    <!-- Add country selection dropdown with a label -->
+    <div style="position: absolute; left: 10px; top: 50px;">
+        <p style="color: green; margin: 0 0 5px 0;">Select a country to highlight its data</p>
+        <select id="countrySelect" onchange="highlightCountry()">
+            <option value="">Select a Country</option>
+        </select>
+    </div>
 
 <script>
-    // ----- 添加全屏黑色遮罩（覆盖 #sunburst 容器），显示标题后渐出 -----
+    // ----- Add full-screen black overlay (covering the #sunburst container), showing title then fading out -----
     const overlay = d3.select("#sunburst")
         .append("div")
         .style("position", "absolute")
@@ -82,28 +83,28 @@
         .style("opacity", 0)
         .on("end", () => overlay.remove());
 
-    // ----- 绘制图表 -----
+    // ----- Draw the chart -----
     d3.csv("data/Global-Food-Security-Index2022.csv").then(data => {
-        // 1. 按 Rank 升序排序
+        // 1. Sort data by Rank in ascending order
         data.sort((a, b) => +a.Rank - +b.Rank);
 
-        // 2. 固定 viewBox 尺寸：1400×1000（基准尺寸）
+        // 2. Set fixed viewBox size: 1400×1000 (base dimensions)
         const baseWidth = 1400, baseHeight = 1000;
 
-        // 3. 所有环形图尺寸（主图和小图均相同）
+        // 3. Define the sizes for all circular charts (both main and small charts)
         const chartInnerRadius = 120;
-        const chartOuterRadius = 250;  // 环形直径约 500
+        const chartOuterRadius = 250;  // Approximate circle diameter 500
 
-        // 4. 主图表位置：例如 (700,800)
+        // 4. Main chart position (e.g., (700,700))
         const mainPos = { x: 700, y: 700 };
 
-        // 5. 四个小图表：按弧形排列，采用你已调整好的角度数组（单位：度），例如 [210,250,290,330]
-        //    并设置排列半径 smallR，确保它们离主图较远
+        // 5. Four small charts arranged along an arc using given angle array (in degrees) e.g., [185,245,298,355]
+        //    and a fixed radius smallR to position them away from the main chart
         const smallR = 500;
         const smallAnglesDeg = [185, 245, 298, 355];
         const smallAngles = smallAnglesDeg.map(d => d * Math.PI / 180);
 
-        // 6. 维度设置：主图显示 "Overall score"，四个小图显示其他维度
+        // 6. Dimensions: main chart displays "Overall score", small charts display other dimensions
         const mainDimension = "Overall score";
         const smallDimensions = [
             "Affordability",
@@ -112,7 +113,7 @@
             "Sustainability and Adaptation"
         ];
 
-        // 7. 创建 SVG（使用 viewBox 保持比例）
+        // 7. Create SVG (using viewBox to maintain proportions)
         d3.select("#sunburst").select("svg").remove();
         const svg = d3.select("#sunburst")
             .append("svg")
@@ -121,7 +122,7 @@
             .style("width", "100%")
             .style("height", "100%");
 
-        // 8. 定义颜色色卡（绿色渐变，根据 Rank 映射颜色）
+        // 8. Define color palette (green gradient based on Rank)
         const colorPalette = [
             "#274E13", "#1B5E20", "#2E7D32", "#388E3C", "#43A047",
             "#4CAF50", "#66BB6A", "#81C784", "#A5D6A7", "#C8E6C9"
@@ -130,18 +131,18 @@
             .domain([1, data.length])
             .interpolator(d3.interpolateRgbBasis(colorPalette));
 
-        // 9. 公用角度比例尺：将所有国家均分 0~2π
+        // 9. Define common angle scale: equally divide 0~2π among all countries
         const angleScale = d3.scaleBand()
             .domain(data.map(d => d.Country))
             .range([0, 2 * Math.PI])
             .padding(0.05);
 
-        // 10. 公用长度比例尺：Rank 越低，条形越长
+        // 10. Define common length scale: lower Rank gives a longer bar
         const lengthScale = d3.scaleLinear()
             .domain([1, data.length])
             .range([chartInnerRadius + 20, chartOuterRadius]);
 
-        // ----- 绘制主图表 (Overall score) -----
+        // ----- Draw the main chart (Overall score) -----
         const mainGroup = svg.append("g")
             .attr("transform", `translate(${mainPos.x},${mainPos.y})`);
 
@@ -154,7 +155,7 @@
             .attr("d", d => {
                 const sA = angleScale(d.Country);
                 const eA = sA + angleScale.bandwidth();
-                // 初始状态：内外半径均为 chartInnerRadius（收缩状态）
+                // Initial state: inner and outer radii both set to chartInnerRadius (collapsed state)
                 return d3.arc()
                     .innerRadius(chartInnerRadius)
                     .outerRadius(chartInnerRadius)
@@ -195,7 +196,7 @@
                 tooltip.style("display", "none");
             });
 
-        // 主图动画展开
+        // Animate the main chart expanding
         mainBars.transition().duration(2000)
             .attr("d", d => {
                 const sA = angleScale(d.Country);
@@ -207,7 +208,7 @@
                     .endAngle(eA)();
             });
 
-        // 在主图下方添加名称
+        // Add label under the main chart
         mainGroup.append("text")
             .attr("x", 0)
             .attr("y", chartOuterRadius + 30)
@@ -216,10 +217,9 @@
             .style("fill", "#333")
             .text("Overall Score");
 
-        // ----- 绘制四个小图表，按弧形排列 -----
-        // 采用小图角度数组 smallAngles，排列半径 smallR
+        // ----- Draw the four small charts arranged along an arc -----
         smallAngles.forEach((angle, i) => {
-            // 小图中心位置：以主图中心为圆心
+            // Calculate small chart center position relative to main chart
             const cx = mainPos.x + smallR * Math.cos(angle);
             const cy = mainPos.y + smallR * Math.sin(angle);
             const group = svg.append("g")
@@ -275,7 +275,7 @@
                     tooltip.style("display", "none");
                 });
 
-            // 小图动画展开
+            // Animate small charts expanding
             dimBars.transition().duration(2000)
                 .attr("d", d => {
                     const sA = angleScale(d.Country);
@@ -287,7 +287,7 @@
                         .endAngle(eA)();
                 });
 
-            // 在小图下方添加名称
+            // Add label under each small chart
             group.append("text")
                 .attr("x", 0)
                 .attr("y", chartOuterRadius + 30)
@@ -297,7 +297,7 @@
                 .text(currentDim);
         });
 
-        // ----- 更新国家下拉框 -----
+        // ----- Populate the country dropdown -----
         const countrySelect = document.getElementById("countrySelect");
             data.forEach(d => {
                 const option = document.createElement("option");
@@ -306,14 +306,14 @@
                 countrySelect.appendChild(option);
             });
 
-            // 高亮选择的国家
+            // Highlight the selected country
             window.highlightCountry = function() {
                 const selectedCountry = countrySelect.value;
 
                 mainBars.transition().duration(500)
                     .attr("fill", d => d.Country === selectedCountry ? "#FFD700" : colorScale(+d.Rank));
 
-                // 处理小图的高亮
+                // Also highlight the small charts
                 svg.selectAll("g").each(function() {
                     const group = d3.select(this);
                     group.selectAll("path")
@@ -321,12 +321,11 @@
                         .attr("fill", d => d.Country === selectedCountry ? "#FFD700" : colorScale(+d.Rank));
                 });
             };
-        // ----- 右下角学术注释及颜色图例 -----
-// 创建一个图例组，位置可根据需要微调（此处右下角偏上一些，以免与边界贴得太近）
+        // ----- Add legend and academic annotation in the lower right -----
         const legendGroup = svg.append("g")
             .attr("transform", `translate(${baseWidth - 150}, ${baseHeight - 80})`);
 
-// 第一行：图例标题
+        // First row: Legend title
         legendGroup.append("text")
             .attr("x", 200)
             .attr("y", 0)
@@ -335,12 +334,12 @@
             .style("fill", "#555")
             .text("Color Legend:");
 
-// 第二行：最高排名（深绿色）示意
+        // Second row: Highest rank (deep green) indicator
         legendGroup.append("circle")
             .attr("cx", 200)
             .attr("cy", 20)
             .attr("r", 6)
-            .style("fill", "#274E13"); // 深绿色，对应Rank 1
+            .style("fill", "#274E13"); // Deep green corresponds to Rank 1
         legendGroup.append("text")
             .attr("x", 215)
             .attr("y", 25)
@@ -349,12 +348,12 @@
             .style("fill", "#555")
             .text("Rank 1 (Highest)");
 
-// 第三行：最低排名（浅绿色）示意
+        // Third row: Lowest rank (light green) indicator
         legendGroup.append("circle")
             .attr("cx", 200)
             .attr("cy", 45)
             .attr("r", 6)
-            .style("fill", "#C8E6C9"); // 浅绿色，对应最低排名
+            .style("fill", "#C8E6C9"); // Light green corresponds to the lowest rank
         legendGroup.append("text")
             .attr("x", 215)
             .attr("y", 50)
@@ -363,7 +362,7 @@
             .style("fill", "#555")
             .text("Lowest Rank");
 
-// 第四行：数据来源及补充说明
+        // Fourth row: Data source and notes
         legendGroup.append("text")
             .attr("x", 200)
             .attr("y", 70)
