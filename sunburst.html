@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Global Food Security Index</title>
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <style>
+        /* 使用细网格背景 */
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #fff;
+            background-image:
+                    linear-gradient(#ccc 1px, transparent 1px),
+                    linear-gradient(90deg, #ccc 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        /* 图表容器，占满整个视口 */
+        #sunburst {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+        .tooltip {
+            position: absolute;
+            padding: 8px;
+            background: #4CAF50;
+            color: white;
+            border-radius: 5px;
+            font-size: 14px;
+            display: none;
+            pointer-events: none;
+            z-index: 9999;
+        }
+        .nav-button {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            z-index: 10000;
+        }
+    </style>
+</head>
+<body>
+    <div id="sunburst"></div>
+    <div class="tooltip" id="tooltip"></div>
+    <button class="nav-button" onclick="location.href='main.html'">Explore Data</button>
+    <!-- 添加国家选择框 -->
+<div style="position: absolute; left: 10px; top: 50px;">
+    <select id="countrySelect" onchange="highlightCountry()">
+        <option value="">Select a Country</option>
+    </select>
+</div>
+
+<script>
+    // ----- 添加全屏黑色遮罩（覆盖 #sunburst 容器），显示标题后渐出 -----
+    const overlay = d3.select("#sunburst")
+        .append("div")
+        .style("position", "absolute")
+        .style("top", "0")
+        .style("left", "0")
+        .style("width", "100%")
+        .style("height", "100%")
+        .style("background", "black")
+        .style("display", "flex")
+        .style("justify-content", "center")
+        .style("align-items", "center")
+        .style("color", "white")
+        .style("font-size", "48px")
+        .style("z-index", "9999")
+        .html("Global Food Security Index");
+
+    overlay.transition()
+        .delay(1000)
+        .duration(2000)
+        .style("opacity", 0)
+        .on("end", () => overlay.remove());
+
+    // ----- 绘制图表 -----
+    d3.csv("data/Global-Food-Security-Index2022.csv").then(data => {
+        // 1. 按 Rank 升序排序
+        data.sort((a, b) => +a.Rank - +b.Rank);
+
+        // 2. 固定 viewBox 尺寸：1400×1000（基准尺寸）
+        const baseWidth = 1400, baseHeight = 1000;
+
+        // 3. 所有环形图尺寸（主图和小图均相同）
+        const chartInnerRadius = 120;
+        const chartOuterRadius = 250;  // 环形直径约 500
+
+        // 4. 主图表位置：例如 (700,800)
+        const mainPos = { x: 700, y: 700 };
+
+        // 5. 四个小图表：按弧形排列，采用你已调整好的角度数组（单位：度），例如 [210,250,290,330]
+        //    并设置排列半径 smallR，确保它们离主图较远
+        const smallR = 500;
+        const smallAnglesDeg = [185, 245, 298, 355];
+        const smallAngles = smallAnglesDeg.map(d => d * Math.PI / 180);
+
+        // 6. 维度设置：主图显示 "Overall score"，四个小图显示其他维度
+        const mainDimension = "Overall score";
+        const smallDimensions = [
+            "Affordability",
+            "Availability",
+            "Quality and Safety",
+            "Sustainability and Adaptation"
+        ];
+
+        // 7. 创建 SVG（使用 viewBox 保持比例）
+        d3.select("#sunburst").select("svg").remove();
+        const svg = d3.select("#sunburst")
+            .append("svg")
+            .attr("viewBox", `0 0 ${baseWidth} ${baseHeight}`)
+            .attr("preserveAspectRatio", "xMidYMid meet")
+            .style("width", "100%")
+            .style("height", "100%");
+
+        // 8. 定义颜色色卡（绿色渐变，根据 Rank 映射颜色）
+        const colorPalette = [
+            "#274E13", "#1B5E20", "#2E7D32", "#388E3C", "#43A047",
+            "#4CAF50", "#66BB6A", "#81C784", "#A5D6A7", "#C8E6C9"
+        ];
+        const colorScale = d3.scaleSequential()
+            .domain([1, data.length])
+            .interpolator(d3.interpolateRgbBasis(colorPalette));
+
+        // 9. 公用角度比例尺：将所有国家均分 0~2π
+        const angleScale = d3.scaleBand()
+            .domain(data.map(d => d.Country))
+            .range([0, 2 * Math.PI])
+            .padding(0.05);
+
+        // 10. 公用长度比例尺：Rank 越低，条形越长
+        const lengthScale = d3.scaleLinear()
+            .domain([1, data.length])
+            .range([chartInnerRadius + 20, chartOuterRadius]);
+
+        // ----- 绘制主图表 (Overall score) -----
+        const mainGroup = svg.append("g")
+            .attr("transform", `translate(${mainPos.x},${mainPos.y})`);
+
+        const mainBars = mainGroup.selectAll("path")
+            .data(data)
+            .enter()
+            .append("path")
+            .attr("fill", d => colorScale(+d.Rank))
+            .attr("stroke", "#fff")
+            .attr("d", d => {
+                const sA = angleScale(d.Country);
+                const eA = sA + angleScale.bandwidth();
+                // 初始状态：内外半径均为 chartInnerRadius（收缩状态）
+                return d3.arc()
+                    .innerRadius(chartInnerRadius)
+                    .outerRadius(chartInnerRadius)
+                    .startAngle(sA)
+                    .endAngle(eA)();
+            })
+            .on("mouseover", function(event, d) {
+                d3.select(this)
+                    .transition().duration(300)
+                    .attr("fill", "#FFD700")
+                    .attr("d", () => {
+                        const sA = angleScale(d.Country);
+                        const eA = sA + angleScale.bandwidth();
+                        return d3.arc()
+                            .innerRadius(chartInnerRadius)
+                            .outerRadius(lengthScale(+d[mainDimension]) + 10)
+                            .startAngle(sA)
+                            .endAngle(eA)();
+                    });
+                tooltip.style("display", "block")
+                    .html(`<strong>${d.Country}</strong><br>Rank: ${d.Rank}<br>${mainDimension}: ${d[mainDimension]}`)
+                    .style("left", (event.pageX + 10) + "px")
+                    .style("top", (event.pageY - 20) + "px");
+            })
+            .on("mouseout", function(event, d) {
+                d3.select(this)
+                    .transition().duration(500)
+                    .attr("fill", colorScale(+d.Rank))
+                    .attr("d", () => {
+                        const sA = angleScale(d.Country);
+                        const eA = sA + angleScale.bandwidth();
+                        return d3.arc()
+                            .innerRadius(chartInnerRadius)
+                            .outerRadius(lengthScale(+d[mainDimension]))
+                            .startAngle(sA)
+                            .endAngle(eA)();
+                    });
+                tooltip.style("display", "none");
+            });
+
+        // 主图动画展开
+        mainBars.transition().duration(2000)
+            .attr("d", d => {
+                const sA = angleScale(d.Country);
+                const eA = sA + angleScale.bandwidth();
+                return d3.arc()
+                    .innerRadius(chartInnerRadius)
+                    .outerRadius(lengthScale(+d[mainDimension]))
+                    .startAngle(sA)
+                    .endAngle(eA)();
+            });
+
+        // 在主图下方添加名称
+        mainGroup.append("text")
+            .attr("x", 0)
+            .attr("y", chartOuterRadius + 30)
+            .attr("text-anchor", "middle")
+            .style("font-size", "18px")
+            .style("fill", "#333")
+            .text("Overall Score");
+
+        // ----- 绘制四个小图表，按弧形排列 -----
+        // 采用小图角度数组 smallAngles，排列半径 smallR
+        smallAngles.forEach((angle, i) => {
+            // 小图中心位置：以主图中心为圆心
+            const cx = mainPos.x + smallR * Math.cos(angle);
+            const cy = mainPos.y + smallR * Math.sin(angle);
+            const group = svg.append("g")
+                .attr("transform", `translate(${cx},${cy})`);
+            const currentDim = smallDimensions[i];
+
+            const dimBars = group.selectAll("path")
+                .data(data)
+                .enter()
+                .append("path")
+                .attr("fill", d => colorScale(+d.Rank))
+                .attr("stroke", "#fff")
+                .attr("d", d => {
+                    const sA = angleScale(d.Country);
+                    const eA = sA + angleScale.bandwidth();
+                    return d3.arc()
+                        .innerRadius(chartInnerRadius)
+                        .outerRadius(chartInnerRadius)
+                        .startAngle(sA)
+                        .endAngle(eA)();
+                })
+                .on("mouseover", function(event, d) {
+                    d3.select(this)
+                        .transition().duration(300)
+                        .attr("fill", "#FFD700")
+                        .attr("d", () => {
+                            const sA = angleScale(d.Country);
+                            const eA = sA + angleScale.bandwidth();
+                            return d3.arc()
+                                .innerRadius(chartInnerRadius)
+                                .outerRadius(lengthScale(+d[currentDim]) + 10)
+                                .startAngle(sA)
+                                .endAngle(eA)();
+                        });
+                    tooltip.style("display", "block")
+                        .html(`<strong>${d.Country}</strong><br>${currentDim}: ${d[currentDim]}`)
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 20) + "px");
+                })
+                .on("mouseout", function(event, d) {
+                    d3.select(this)
+                        .transition().duration(500)
+                        .attr("fill", colorScale(+d.Rank))
+                        .attr("d", () => {
+                            const sA = angleScale(d.Country);
+                            const eA = sA + angleScale.bandwidth();
+                            return d3.arc()
+                                .innerRadius(chartInnerRadius)
+                                .outerRadius(lengthScale(+d[currentDim]))
+                                .startAngle(sA)
+                                .endAngle(eA)();
+                        });
+                    tooltip.style("display", "none");
+                });
+
+            // 小图动画展开
+            dimBars.transition().duration(2000)
+                .attr("d", d => {
+                    const sA = angleScale(d.Country);
+                    const eA = sA + angleScale.bandwidth();
+                    return d3.arc()
+                        .innerRadius(chartInnerRadius)
+                        .outerRadius(lengthScale(+d[currentDim]))
+                        .startAngle(sA)
+                        .endAngle(eA)();
+                });
+
+            // 在小图下方添加名称
+            group.append("text")
+                .attr("x", 0)
+                .attr("y", chartOuterRadius + 30)
+                .attr("text-anchor", "middle")
+                .style("font-size", "18px")
+                .style("fill", "#333")
+                .text(currentDim);
+        });
+
+        // ----- 更新国家下拉框 -----
+        const countrySelect = document.getElementById("countrySelect");
+            data.forEach(d => {
+                const option = document.createElement("option");
+                option.value = d.Country;
+                option.textContent = d.Country;
+                countrySelect.appendChild(option);
+            });
+
+            // 高亮选择的国家
+            window.highlightCountry = function() {
+                const selectedCountry = countrySelect.value;
+
+                mainBars.transition().duration(500)
+                    .attr("fill", d => d.Country === selectedCountry ? "#FFD700" : colorScale(+d.Rank));
+
+                // 处理小图的高亮
+                svg.selectAll("g").each(function() {
+                    const group = d3.select(this);
+                    group.selectAll("path")
+                        .transition().duration(500)
+                        .attr("fill", d => d.Country === selectedCountry ? "#FFD700" : colorScale(+d.Rank));
+                });
+            };
+        // ----- 右下角学术注释及颜色图例 -----
+// 创建一个图例组，位置可根据需要微调（此处右下角偏上一些，以免与边界贴得太近）
+        const legendGroup = svg.append("g")
+            .attr("transform", `translate(${baseWidth - 150}, ${baseHeight - 80})`);
+
+// 第一行：图例标题
+        legendGroup.append("text")
+            .attr("x", 200)
+            .attr("y", 0)
+            .attr("text-anchor", "start")
+            .style("font-size", "14px")
+            .style("fill", "#555")
+            .text("Color Legend:");
+
+// 第二行：最高排名（深绿色）示意
+        legendGroup.append("circle")
+            .attr("cx", 200)
+            .attr("cy", 20)
+            .attr("r", 6)
+            .style("fill", "#274E13"); // 深绿色，对应Rank 1
+        legendGroup.append("text")
+            .attr("x", 215)
+            .attr("y", 25)
+            .attr("text-anchor", "start")
+            .style("font-size", "14px")
+            .style("fill", "#555")
+            .text("Rank 1 (Highest)");
+
+// 第三行：最低排名（浅绿色）示意
+        legendGroup.append("circle")
+            .attr("cx", 200)
+            .attr("cy", 45)
+            .attr("r", 6)
+            .style("fill", "#C8E6C9"); // 浅绿色，对应最低排名
+        legendGroup.append("text")
+            .attr("x", 215)
+            .attr("y", 50)
+            .attr("text-anchor", "start")
+            .style("font-size", "14px")
+            .style("fill", "#555")
+            .text("Lowest Rank");
+
+// 第四行：数据来源及补充说明
+        legendGroup.append("text")
+            .attr("x", 200)
+            .attr("y", 70)
+            .attr("text-anchor", "start")
+            .style("font-size", "14px")
+            .style("fill", "#555")
+            .text("Note: Data source: GFSI 2022.");
+
+    });
+</script>
+</body>
+</html>

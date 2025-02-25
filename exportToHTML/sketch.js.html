@@ -1,0 +1,177 @@
+<html>
+<head>
+<title>sketch.js</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #8c8c8c; font-style: italic;}
+.s1 { color: #080808;}
+.s2 { color: #0033b3;}
+.s3 { color: #1750eb;}
+.s4 { color: #067d17;}
+</style>
+</head>
+<body bgcolor="#ffffff">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#c0c0c0" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+sketch.js</font>
+</center></td></tr></table>
+<pre><span class="s0">// 画布大小</span>
+<span class="s2">var </span><span class="s1">canvas_width = </span><span class="s3">1600</span><span class="s1">; </span><span class="s0">// 增加画布宽度，适应更长的线</span>
+<span class="s2">var </span><span class="s1">canvas_height = </span><span class="s3">5600</span><span class="s1">;</span>
+
+<span class="s2">var </span><span class="s1">font_type = </span><span class="s4">'Arial'</span><span class="s1">;</span>
+<span class="s2">var </span><span class="s1">font_height = </span><span class="s3">14</span><span class="s1">;</span>
+<span class="s2">var </span><span class="s1">font_color = </span><span class="s4">'#E0E0E0'</span><span class="s1">; </span><span class="s0">// 文字颜色改为浅灰</span>
+
+<span class="s0">// 行间距</span>
+<span class="s2">var </span><span class="s1">line_spacing = </span><span class="s3">40</span><span class="s1">; </span><span class="s0">// 适当增加行距，减少重叠</span>
+
+<span class="s0">// 页边距</span>
+<span class="s2">var </span><span class="s1">right_margin = </span><span class="s3">50</span><span class="s1">, left_margin = </span><span class="s3">50</span><span class="s1">;</span>
+<span class="s2">var </span><span class="s1">top_margin = </span><span class="s3">60</span><span class="s1">, bottom_margin = </span><span class="s3">20</span><span class="s1">; </span><span class="s0">// 增加顶部间距用于标题</span>
+
+<span class="s0">// 记录最长国家名称的长度</span>
+<span class="s2">var </span><span class="s1">longest_name_length = </span><span class="s3">0</span><span class="s1">;</span>
+<span class="s2">var </span><span class="s1">table;</span>
+<span class="s2">var </span><span class="s1">countries, affordability, availability, quality_safety, sustainability;</span>
+
+<span class="s0">// 存储点信息 {x, y, value, type}</span>
+<span class="s2">var </span><span class="s1">points = [];</span>
+
+<span class="s0">// 颜色美化</span>
+<span class="s2">var </span><span class="s1">colors = {</span>
+  <span class="s4">&quot;Affordability&quot;</span><span class="s1">: </span><span class="s4">&quot;#FF6B6B&quot;</span><span class="s1">,</span>
+  <span class="s4">&quot;Availability&quot;</span><span class="s1">: </span><span class="s4">&quot;#4ECDC4&quot;</span><span class="s1">,</span>
+  <span class="s4">&quot;Quality &amp; Safety&quot;</span><span class="s1">: </span><span class="s4">&quot;#5A9DF8&quot;</span><span class="s1">,</span>
+  <span class="s4">&quot;Sustainability&quot;</span><span class="s1">: </span><span class="s4">&quot;#F4D35E&quot;</span><span class="s1">,</span>
+  <span class="s4">&quot;Line&quot;</span><span class="s1">: </span><span class="s4">&quot;#B0B0B0&quot;</span>
+<span class="s1">};</span>
+
+<span class="s2">function </span><span class="s1">preload() {</span>
+  <span class="s1">table = loadTable(</span><span class="s4">&quot;data/Global-Food-Security-Index2022.csv&quot;</span><span class="s1">, </span><span class="s4">&quot;csv&quot;</span><span class="s1">, </span><span class="s4">&quot;header&quot;</span><span class="s1">);</span>
+<span class="s1">}</span>
+
+<span class="s0">// 计算最长国家名称的宽度</span>
+<span class="s2">function </span><span class="s1">getLongestNameLength(names) {</span>
+  <span class="s2">for </span><span class="s1">(</span><span class="s2">var </span><span class="s1">i = </span><span class="s3">0</span><span class="s1">; i &lt; names.length; i++) {</span>
+    <span class="s2">var </span><span class="s1">current_name_length = textWidth(names[i]);</span>
+    <span class="s2">if </span><span class="s1">(current_name_length &gt; longest_name_length) {</span>
+      <span class="s1">longest_name_length = current_name_length;</span>
+    <span class="s1">}</span>
+  <span class="s1">}</span>
+  <span class="s2">return </span><span class="s1">longest_name_length;</span>
+<span class="s1">}</span>
+
+<span class="s0">// 将数据值映射到 0-100 线的位置（加长）</span>
+<span class="s2">function </span><span class="s1">mapToLine(value) {</span>
+  <span class="s2">return </span><span class="s1">map(value, </span><span class="s3">0</span><span class="s1">, </span><span class="s3">100</span><span class="s1">, </span><span class="s3">0</span><span class="s1">, </span><span class="s3">600</span><span class="s1">); </span><span class="s0">// 0-100 线长度加长至 600px</span>
+<span class="s1">}</span>
+
+<span class="s2">function </span><span class="s1">setup() {</span>
+  <span class="s1">createCanvas(canvas_width, canvas_height);</span>
+  <span class="s1">textFont(font_type);</span>
+  <span class="s1">textSize(font_height);</span>
+
+  <span class="s0">// 获取数据</span>
+  <span class="s1">countries = table.getColumn(</span><span class="s4">&quot;Country&quot;</span><span class="s1">);</span>
+  <span class="s1">affordability = table.getColumn(</span><span class="s4">&quot;Affordability&quot;</span><span class="s1">).map(Number);</span>
+  <span class="s1">availability = table.getColumn(</span><span class="s4">&quot;Availability&quot;</span><span class="s1">).map(Number);</span>
+  <span class="s1">quality_safety = table.getColumn(</span><span class="s4">&quot;Quality and Safety&quot;</span><span class="s1">).map(Number);</span>
+  <span class="s1">sustainability = table.getColumn(</span><span class="s4">&quot;Sustainability and Adaptation&quot;</span><span class="s1">).map(Number);</span>
+
+  <span class="s1">longest_name_length = getLongestNameLength(countries);</span>
+<span class="s1">}</span>
+
+<span class="s2">function </span><span class="s1">draw() {</span>
+  <span class="s1">background(</span><span class="s4">&quot;#121212&quot;</span><span class="s1">); </span><span class="s0">// 柔和黑色背景</span>
+  <span class="s1">fill(font_color);</span>
+  <span class="s1">noStroke();</span>
+
+  <span class="s1">textSize(</span><span class="s3">16</span><span class="s1">);</span>
+  <span class="s1">textAlign(LEFT);</span>
+  <span class="s1">text(</span><span class="s4">&quot;数据类型&quot;</span><span class="s1">, left_margin, </span><span class="s3">30</span><span class="s1">);</span>
+
+  <span class="s2">var </span><span class="s1">label_x = left_margin + </span><span class="s3">100</span><span class="s1">;</span>
+  <span class="s2">var </span><span class="s1">label_y = </span><span class="s3">20</span><span class="s1">;</span>
+  <span class="s2">var </span><span class="s1">label_size = </span><span class="s3">18</span><span class="s1">;</span>
+
+  <span class="s1">drawLegend(label_x, label_y, label_size);</span>
+
+  <span class="s1">textSize(font_height); </span><span class="s0">// 恢复文本大小</span>
+  <span class="s2">var </span><span class="s1">text_y = top_margin + font_height;</span>
+  <span class="s2">var </span><span class="s1">base_x = left_margin + longest_name_length + </span><span class="s3">20</span><span class="s1">;</span>
+  <span class="s2">var </span><span class="s1">line_x_start = base_x + </span><span class="s3">20</span><span class="s1">;</span>
+  <span class="s2">var </span><span class="s1">line_x_end = line_x_start + </span><span class="s3">600</span><span class="s1">; </span><span class="s0">// 线长度加倍</span>
+
+  <span class="s1">points = []; </span><span class="s0">// 清空上一帧的点数据</span>
+
+  <span class="s2">for </span><span class="s1">(</span><span class="s2">var </span><span class="s1">i = </span><span class="s3">0</span><span class="s1">; i &lt; countries.length; i++) {</span>
+    <span class="s1">fill(</span><span class="s4">&quot;#B0B0B0&quot;</span><span class="s1">);</span>
+    <span class="s1">text(countries[i], left_margin + longest_name_length - textWidth(countries[i]), text_y);</span>
+
+    <span class="s1">stroke(colors.Line);</span>
+    <span class="s1">strokeWeight(</span><span class="s3">2</span><span class="s1">); </span><span class="s0">// 线稍微加粗</span>
+    <span class="s1">line(line_x_start, text_y - font_height / </span><span class="s3">2</span><span class="s1">, line_x_end, text_y - font_height / </span><span class="s3">2</span><span class="s1">);</span>
+
+    <span class="s2">var </span><span class="s1">x_afford = line_x_start + mapToLine(affordability[i]);</span>
+    <span class="s2">var </span><span class="s1">x_avail = line_x_start + mapToLine(availability[i]);</span>
+    <span class="s2">var </span><span class="s1">x_quality = line_x_start + mapToLine(quality_safety[i]);</span>
+    <span class="s2">var </span><span class="s1">x_sustain = line_x_start + mapToLine(sustainability[i]);</span>
+
+    <span class="s2">var </span><span class="s1">point_y = text_y - font_height / </span><span class="s3">2</span><span class="s1">;</span>
+
+    <span class="s1">drawPoint(x_afford, point_y, colors[</span><span class="s4">&quot;Affordability&quot;</span><span class="s1">], affordability[i]);</span>
+    <span class="s1">drawPoint(x_avail, point_y, colors[</span><span class="s4">&quot;Availability&quot;</span><span class="s1">], availability[i]);</span>
+    <span class="s1">drawPoint(x_quality, point_y, colors[</span><span class="s4">&quot;Quality &amp; Safety&quot;</span><span class="s1">], quality_safety[i]);</span>
+    <span class="s1">drawPoint(x_sustain, point_y, colors[</span><span class="s4">&quot;Sustainability&quot;</span><span class="s1">], sustainability[i]);</span>
+
+    <span class="s1">text_y += font_height + line_spacing;</span>
+  <span class="s1">}</span>
+
+  <span class="s1">checkMouseHover();</span>
+<span class="s1">}</span>
+
+<span class="s0">// 画顶部颜色图例，增加间距</span>
+<span class="s2">function </span><span class="s1">drawLegend(x, y, size) {</span>
+  <span class="s2">var </span><span class="s1">spacing = </span><span class="s3">140</span><span class="s1">; </span><span class="s0">// 每个数据类型之间的间隔</span>
+
+  <span class="s1">Object.keys(colors).forEach((key, index) =&gt; {</span>
+    <span class="s2">if </span><span class="s1">(key !== </span><span class="s4">&quot;Line&quot;</span><span class="s1">) {</span>
+      <span class="s1">fill(colors[key]);</span>
+      <span class="s1">rect(x + index * spacing, y, size, size, </span><span class="s3">5</span><span class="s1">); </span><span class="s0">// 圆角矩形</span>
+      <span class="s1">fill(</span><span class="s4">&quot;#E0E0E0&quot;</span><span class="s1">);</span>
+      <span class="s1">text(key, x + index * spacing + </span><span class="s3">25</span><span class="s1">, y + </span><span class="s3">12</span><span class="s1">);</span>
+    <span class="s1">}</span>
+  <span class="s1">});</span>
+<span class="s1">}</span>
+
+<span class="s0">// 画数据点（放大）</span>
+<span class="s2">function </span><span class="s1">drawPoint(x, y, color, value) {</span>
+  <span class="s1">stroke(color);</span>
+  <span class="s1">strokeWeight(</span><span class="s3">10</span><span class="s1">); </span><span class="s0">// 默认放大点</span>
+  <span class="s1">point(x, y);</span>
+
+  <span class="s0">// 存储点数据</span>
+  <span class="s1">points.push({ x: x, y: y, value: value, color: color });</span>
+<span class="s1">}</span>
+
+<span class="s0">// 处理鼠标悬停效果（放大悬停点）</span>
+<span class="s2">function </span><span class="s1">checkMouseHover() {</span>
+  <span class="s2">for </span><span class="s1">(</span><span class="s2">var </span><span class="s1">i = </span><span class="s3">0</span><span class="s1">; i &lt; points.length; i++) {</span>
+    <span class="s2">var </span><span class="s1">d = dist(mouseX, mouseY, points[i].x, points[i].y);</span>
+    <span class="s2">if </span><span class="s1">(d &lt; </span><span class="s3">8</span><span class="s1">) { </span><span class="s0">// 增加检测范围</span>
+      <span class="s1">fill(</span><span class="s3">255</span><span class="s1">);</span>
+      <span class="s1">textSize(</span><span class="s3">12</span><span class="s1">);</span>
+      <span class="s1">text(nf(points[i].value, </span><span class="s3">1</span><span class="s1">, </span><span class="s3">1</span><span class="s1">), points[i].x - </span><span class="s3">10</span><span class="s1">, points[i].y - </span><span class="s3">15</span><span class="s1">);</span>
+
+      <span class="s0">// 悬停时放大点</span>
+      <span class="s1">stroke(points[i].color);</span>
+      <span class="s1">strokeWeight(</span><span class="s3">15</span><span class="s1">);</span>
+      <span class="s1">point(points[i].x, points[i].y);</span>
+    <span class="s1">}</span>
+  <span class="s1">}</span>
+<span class="s1">}</span>
+</pre>
+</body>
+</html>

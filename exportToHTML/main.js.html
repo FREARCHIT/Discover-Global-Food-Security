@@ -1,0 +1,173 @@
+<html>
+<head>
+<title>main.js</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #8c8c8c; font-style: italic;}
+.s1 { color: #080808;}
+.s2 { color: #0033b3;}
+.s3 { color: #067d17;}
+.s4 { color: #1750eb;}
+</style>
+</head>
+<body bgcolor="#ffffff">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#c0c0c0" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+main.js</font>
+</center></td></tr></table>
+<pre><span class="s0">// 从 CSS 变量中读取绿色渐变色</span>
+<span class="s2">const </span><span class="s1">rootStyles = getComputedStyle(document.documentElement);</span>
+<span class="s2">const </span><span class="s1">mapGreenLight = rootStyles.getPropertyValue(</span><span class="s3">'--map-green-light'</span><span class="s1">).trim() || </span><span class="s3">&quot;#AED581&quot;</span><span class="s1">;</span>
+<span class="s2">const </span><span class="s1">mapGreenDark = rootStyles.getPropertyValue(</span><span class="s3">'--map-green-dark'</span><span class="s1">).trim() || </span><span class="s3">&quot;#4CAF50&quot;</span><span class="s1">;</span>
+
+<span class="s0">// ---------- D3 地图代码 ----------</span>
+<span class="s2">const </span><span class="s1">width = </span><span class="s4">800</span><span class="s1">, height = </span><span class="s4">600</span><span class="s1">;</span>
+<span class="s2">const </span><span class="s1">svg = d3.select(</span><span class="s3">&quot;#map&quot;</span><span class="s1">)</span>
+    <span class="s1">.append(</span><span class="s3">&quot;svg&quot;</span><span class="s1">)</span>
+    <span class="s1">.attr(</span><span class="s3">&quot;width&quot;</span><span class="s1">, width)</span>
+    <span class="s1">.attr(</span><span class="s3">&quot;height&quot;</span><span class="s1">, height)</span>
+    <span class="s1">.style(</span><span class="s3">&quot;background-color&quot;</span><span class="s1">, </span><span class="s3">&quot;var(--container-bg)&quot;</span><span class="s1">);</span>
+
+<span class="s2">const </span><span class="s1">projection = d3.geoMercator().scale(</span><span class="s4">130</span><span class="s1">).translate([width / </span><span class="s4">2</span><span class="s1">, height / </span><span class="s4">1.5</span><span class="s1">]);</span>
+<span class="s2">const </span><span class="s1">path = d3.geoPath().projection(projection);</span>
+
+<span class="s0">// 使用 d3.interpolateRgb 创建绿色渐变色比例尺</span>
+<span class="s2">const </span><span class="s1">colorScale = d3.scaleSequential(d3.interpolateRgb(mapGreenLight, mapGreenDark)).domain([</span><span class="s4">30</span><span class="s1">, </span><span class="s4">85</span><span class="s1">]);</span>
+
+<span class="s2">const </span><span class="s1">tooltip = d3.select(</span><span class="s3">&quot;#tooltip&quot;</span><span class="s1">);</span>
+
+<span class="s1">Promise.all([</span>
+    <span class="s1">d3.json(</span><span class="s3">&quot;data/countries.geojson&quot;</span><span class="s1">),</span>
+    <span class="s1">d3.csv(</span><span class="s3">&quot;data/Global-Food-Security-Index2022.csv&quot;</span><span class="s1">)</span>
+<span class="s1">]).then(([geoData, csvData]) =&gt; {</span>
+    <span class="s2">const </span><span class="s1">countryData = {};</span>
+    <span class="s1">csvData.forEach(d =&gt; {</span>
+        <span class="s1">countryData[d.Country] = {</span>
+            <span class="s1">rank: +d.Rank,</span>
+            <span class="s1">overall: +d[</span><span class="s3">&quot;Overall score&quot;</span><span class="s1">],</span>
+            <span class="s1">affordability: +d.Affordability,</span>
+            <span class="s1">availability: +d.Availability,</span>
+            <span class="s1">quality: +d[</span><span class="s3">&quot;Quality and Safety&quot;</span><span class="s1">],</span>
+            <span class="s1">sustainability: +d[</span><span class="s3">&quot;Sustainability and Adaptation&quot;</span><span class="s1">]</span>
+        <span class="s1">};</span>
+    <span class="s1">});</span>
+
+    <span class="s1">svg.selectAll(</span><span class="s3">&quot;path&quot;</span><span class="s1">)</span>
+        <span class="s1">.data(geoData.features)</span>
+        <span class="s1">.enter()</span>
+        <span class="s1">.append(</span><span class="s3">&quot;path&quot;</span><span class="s1">)</span>
+        <span class="s1">.attr(</span><span class="s3">&quot;d&quot;</span><span class="s1">, path)</span>
+        <span class="s1">.attr(</span><span class="s3">&quot;fill&quot;</span><span class="s1">, d =&gt; {</span>
+            <span class="s2">const </span><span class="s1">country = d.properties.name;</span>
+            <span class="s2">return </span><span class="s1">countryData[country] ? colorScale(countryData[country].overall) : </span><span class="s3">&quot;#ccc&quot;</span><span class="s1">;</span>
+        <span class="s1">})</span>
+        <span class="s1">.attr(</span><span class="s3">&quot;stroke&quot;</span><span class="s1">, </span><span class="s3">&quot;var(--text-color)&quot;</span><span class="s1">)</span>
+        <span class="s1">.on(</span><span class="s3">&quot;mouseover&quot;</span><span class="s1">, </span><span class="s2">function</span><span class="s1">(event, d) {</span>
+            <span class="s2">const </span><span class="s1">country = d.properties.name;</span>
+            <span class="s1">d3.select(</span><span class="s2">this</span><span class="s1">).attr(</span><span class="s3">&quot;fill-opacity&quot;</span><span class="s1">, </span><span class="s4">0.8</span><span class="s1">);</span>
+            <span class="s2">if </span><span class="s1">(countryData[country]) {</span>
+                <span class="s1">tooltip.style(</span><span class="s3">&quot;display&quot;</span><span class="s1">, </span><span class="s3">&quot;block&quot;</span><span class="s1">)</span>
+                    <span class="s1">.html(</span><span class="s3">`&lt;strong&gt;</span><span class="s1">${country}</span><span class="s3">&lt;/strong&gt;&lt;br&gt;Overall Score: </span><span class="s1">${countryData[country].overall}</span><span class="s3">`</span><span class="s1">);</span>
+            <span class="s1">}</span>
+        <span class="s1">})</span>
+        <span class="s1">.on(</span><span class="s3">&quot;mousemove&quot;</span><span class="s1">, </span><span class="s2">function</span><span class="s1">(event, d) {</span>
+            <span class="s1">tooltip.style(</span><span class="s3">&quot;left&quot;</span><span class="s1">, (event.pageX + </span><span class="s4">10</span><span class="s1">) + </span><span class="s3">&quot;px&quot;</span><span class="s1">)</span>
+                <span class="s1">.style(</span><span class="s3">&quot;top&quot;</span><span class="s1">, (event.pageY - </span><span class="s4">28</span><span class="s1">) + </span><span class="s3">&quot;px&quot;</span><span class="s1">);</span>
+        <span class="s1">})</span>
+        <span class="s1">.on(</span><span class="s3">&quot;mouseout&quot;</span><span class="s1">, </span><span class="s2">function</span><span class="s1">(event, d) {</span>
+            <span class="s1">d3.select(</span><span class="s2">this</span><span class="s1">).attr(</span><span class="s3">&quot;fill-opacity&quot;</span><span class="s1">, </span><span class="s4">1.0</span><span class="s1">);</span>
+            <span class="s1">tooltip.style(</span><span class="s3">&quot;display&quot;</span><span class="s1">, </span><span class="s3">&quot;none&quot;</span><span class="s1">);</span>
+        <span class="s1">})</span>
+        <span class="s1">.on(</span><span class="s3">&quot;click&quot;</span><span class="s1">, </span><span class="s2">function</span><span class="s1">(event, d) {</span>
+            <span class="s2">const </span><span class="s1">country = d.properties.name;</span>
+            <span class="s2">if </span><span class="s1">(countryData[country]) {</span>
+                <span class="s1">d3.select(</span><span class="s2">this</span><span class="s1">)</span>
+                    <span class="s1">.transition()</span>
+                    <span class="s1">.duration(</span><span class="s4">200</span><span class="s1">)</span>
+                    <span class="s1">.attr(</span><span class="s3">&quot;stroke&quot;</span><span class="s1">, </span><span class="s3">&quot;var(--primary-color)&quot;</span><span class="s1">)</span>
+                    <span class="s1">.attr(</span><span class="s3">&quot;stroke-width&quot;</span><span class="s1">, </span><span class="s4">4</span><span class="s1">)</span>
+                    <span class="s1">.transition()</span>
+                    <span class="s1">.duration(</span><span class="s4">200</span><span class="s1">)</span>
+                    <span class="s1">.attr(</span><span class="s3">&quot;stroke&quot;</span><span class="s1">, </span><span class="s3">&quot;var(--text-color)&quot;</span><span class="s1">)</span>
+                    <span class="s1">.attr(</span><span class="s3">&quot;stroke-width&quot;</span><span class="s1">, </span><span class="s4">1</span><span class="s1">);</span>
+                <span class="s1">updateInfo(country, countryData[country]);</span>
+                <span class="s1">updateRadarChart(country, countryData[country]);</span>
+            <span class="s1">} </span><span class="s2">else </span><span class="s1">{</span>
+                <span class="s1">alert(</span><span class="s3">`No data available for </span><span class="s1">${country}</span><span class="s3">`</span><span class="s1">);</span>
+            <span class="s1">}</span>
+        <span class="s1">});</span>
+<span class="s1">});</span>
+
+<span class="s2">function </span><span class="s1">updateInfo(country, data) {</span>
+    <span class="s1">document.getElementById(</span><span class="s3">&quot;country-name&quot;</span><span class="s1">).textContent = country;</span>
+    <span class="s1">document.getElementById(</span><span class="s3">&quot;rank&quot;</span><span class="s1">).textContent = data.rank;</span>
+    <span class="s1">document.getElementById(</span><span class="s3">&quot;overall&quot;</span><span class="s1">).textContent = data.overall;</span>
+    <span class="s1">document.getElementById(</span><span class="s3">&quot;affordability&quot;</span><span class="s1">).textContent = data.affordability;</span>
+    <span class="s1">document.getElementById(</span><span class="s3">&quot;availability&quot;</span><span class="s1">).textContent = data.availability;</span>
+    <span class="s1">document.getElementById(</span><span class="s3">&quot;quality&quot;</span><span class="s1">).textContent = data.quality;</span>
+    <span class="s1">document.getElementById(</span><span class="s3">&quot;sustainability&quot;</span><span class="s1">).textContent = data.sustainability;</span>
+<span class="s1">}</span>
+
+<span class="s0">// ---------- Chart.js 雷达图代码 ----------</span>
+<span class="s2">let </span><span class="s1">radarChart;</span>
+<span class="s2">function </span><span class="s1">initRadarChart() {</span>
+    <span class="s2">const </span><span class="s1">ctx = document.getElementById(</span><span class="s3">'radarChart'</span><span class="s1">).getContext(</span><span class="s3">'2d'</span><span class="s1">);</span>
+    <span class="s1">radarChart = </span><span class="s2">new </span><span class="s1">Chart(ctx, {</span>
+        <span class="s1">type: </span><span class="s3">'radar'</span><span class="s1">,</span>
+        <span class="s1">data: {</span>
+            <span class="s1">labels: [</span><span class="s3">'Affordability'</span><span class="s1">, </span><span class="s3">'Availability'</span><span class="s1">, </span><span class="s3">'Quality &amp; Safety'</span><span class="s1">, </span><span class="s3">'Sustainability'</span><span class="s1">],</span>
+            <span class="s1">datasets: [{</span>
+                <span class="s1">label: </span><span class="s3">'Indicator Scores'</span><span class="s1">,</span>
+                <span class="s1">data: [</span><span class="s4">0</span><span class="s1">, </span><span class="s4">0</span><span class="s1">, </span><span class="s4">0</span><span class="s1">, </span><span class="s4">0</span><span class="s1">],</span>
+                <span class="s1">backgroundColor: </span><span class="s3">'rgba(76, 175, 80, 0.2)'</span><span class="s1">, </span><span class="s0">// 主绿色半透明</span>
+                <span class="s1">borderColor: </span><span class="s3">'rgba(76, 175, 80, 1)'</span><span class="s1">,</span>
+                <span class="s1">pointBackgroundColor: </span><span class="s3">'rgba(76, 175, 80, 1)'</span>
+            <span class="s1">}]</span>
+        <span class="s1">},</span>
+        <span class="s1">options: {</span>
+            <span class="s1">scales: {</span>
+                <span class="s1">r: {</span>
+                    <span class="s1">ticks: {</span>
+                        <span class="s1">beginAtZero: </span><span class="s2">true</span><span class="s1">,</span>
+                        <span class="s1">max: </span><span class="s4">100</span><span class="s1">,</span>
+                        <span class="s1">color: </span><span class="s3">&quot;#1B5E20&quot;</span>
+                    <span class="s1">},</span>
+                    <span class="s1">grid: {</span>
+                        <span class="s1">color: </span><span class="s3">&quot;#A5D6A7&quot;</span>
+                    <span class="s1">},</span>
+                    <span class="s1">angleLines: {</span>
+                        <span class="s1">color: </span><span class="s3">&quot;#A5D6A7&quot;</span>
+                    <span class="s1">},</span>
+                    <span class="s1">pointLabels: {</span>
+                        <span class="s1">color: </span><span class="s3">&quot;#1B5E20&quot;</span>
+                    <span class="s1">}</span>
+                <span class="s1">}</span>
+            <span class="s1">},</span>
+            <span class="s1">plugins: {</span>
+                <span class="s1">legend: {</span>
+                    <span class="s1">labels: { color: </span><span class="s3">&quot;#1B5E20&quot; </span><span class="s1">}</span>
+                <span class="s1">}</span>
+            <span class="s1">},</span>
+            <span class="s1">responsive: </span><span class="s2">true</span><span class="s1">,</span>
+            <span class="s1">maintainAspectRatio: </span><span class="s2">false</span>
+        <span class="s1">}</span>
+    <span class="s1">});</span>
+<span class="s1">}</span>
+
+<span class="s2">function </span><span class="s1">updateRadarChart(country, data) {</span>
+    <span class="s2">if </span><span class="s1">(!radarChart) </span><span class="s2">return</span><span class="s1">;</span>
+    <span class="s1">radarChart.data.datasets[</span><span class="s4">0</span><span class="s1">].data = [</span>
+        <span class="s1">data.affordability,</span>
+        <span class="s1">data.availability,</span>
+        <span class="s1">data.quality,</span>
+        <span class="s1">data.sustainability</span>
+    <span class="s1">];</span>
+    <span class="s1">radarChart.data.datasets[</span><span class="s4">0</span><span class="s1">].label = country;</span>
+    <span class="s1">radarChart.update();</span>
+<span class="s1">}</span>
+
+<span class="s1">initRadarChart();</span>
+</pre>
+</body>
+</html>

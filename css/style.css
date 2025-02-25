@@ -1,0 +1,23 @@
+body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+}
+
+#container {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+#map {
+    width: 60%;
+    height: 600px;
+}
+
+#info {
+    width: 30%;
+    padding: 20px;
+    border: 1px solid #ddd;
+    margin-left: 20px;
+    text-align: left;
+}
